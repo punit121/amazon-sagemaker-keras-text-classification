@@ -37,7 +37,7 @@ from tensorflow.python.keras.preprocessing.text import Tokenizer
 from tensorflow.python.keras.preprocessing.sequence import pad_sequences
 
 MAX_LEN = 100
-label_index = {'Business':0,'Science & Technology':1,'Entertainment':2,'Health & Medicine':3}
+label_index = {'abusive':0,'asking_exchange':1,'asking_payment':2,'normal':3,'offline_sell':4,'phishing':5,'possible_fraud':6,'sharing_contact_details':7,'vulgar_talk':8}
 prefix = '/opt/ml/'
 model_path = os.path.join(prefix, 'model')
 with open(os.path.join(model_path,'tokenizer.pickle'), 'rb') as handle:
@@ -74,8 +74,21 @@ class ScoringService(object):
         seq = tokenizer.texts_to_sequences([input])
         d = pad_sequences(seq, maxlen=MAX_LEN)
         with graph.as_default():
-            prediction = clf.predict_classes(np.array(d))
-        return(get_class_label(prediction))
+            prediction = clf.predict(np.array(d))
+
+        list_classes = ['normal', 'sharing_contact_details', 'offline_sell', 'asking_exchange', 'vulgar_talk',
+                        'possible_fraud', 'phishing', 'abusive', 'asking_payment']
+        list_classes.sort()
+        # list_classes[3]='Mayank'
+        result = {}
+        #result = my_dictionary()
+        for i in range(0, 9):
+            # sub_res={}
+            # sub_res.add(list_classes[i])
+            # sub_res.add(prediction[i])
+             result[list_classes[i]]=prediction[0][i]
+            #result.add(list_classes[i], prediction[0][i])
+        return(result)
 
 # The flask app for serving predictions
 app = flask.Flask(__name__)
@@ -103,7 +116,6 @@ def transformation():
 
     #
     # # Do the prediction
-    prediction = {
-        "result": ScoringService().predict(input)
-    }
+    prediction = ScoringService().predict(input)
+
     return flask.Response(response=json.dumps(prediction), status=200, mimetype='application/json')

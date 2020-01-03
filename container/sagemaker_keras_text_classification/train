@@ -53,7 +53,7 @@ param_path = os.path.join(prefix, 'input/config/hyperparameters.json')
 channel_name='training'
 training_path = os.path.join(input_path, channel_name)
 
-label_index = {'b':0,'t':1,'e':2,'m':3}
+label_index = {'abusive':0,'asking_exchange':1,'asking_payment':2,'normal':3,'offline_sell':4,'phishing':5,'possible_fraud':6,'sharing_contact_details':7,'vulgar_talk':8}
 MAX_WORDS = 10000 # only consider the top 10,000 words in the dataset
 WORD_INDEX = {}
 EMBEDDING_DIM = 100
@@ -89,15 +89,15 @@ def train():
         with open(param_path, 'r') as tc:
             trainingParams = json.load(tc)
 
-        column_names = ["TITLE", "URL", "PUBLISHER", "CATEGORY", "STORY", "HOSTNAME", "TIMESTAMP"]
-        news_dataset = pd.read_csv(os.path.join(training_path, 'newsCorpora.csv'), names=column_names, header=None, delimiter='\t')
+        column_names = ["message_body", "Signal"]
+        news_dataset = pd.read_csv(os.path.join(training_path, 'spam_chat_final.csv'), names=column_names, header=None, delimiter='\t')
         news_dataset = news_dataset.dropna()
         print(news_dataset.head())
 
         #remove punctuations and double spaces
-        texts = [normalize_text(s) for s in news_dataset['TITLE']]
-        #convert category to a number
-        labels = [get_label_id(l) for l in news_dataset['CATEGORY']]
+        texts = [normalize_text(s) for s in news_dataset['message_body']]
+        # convert category to a number
+        labels = [get_label_id(l) for l in news_dataset['Signal']]
 
         tokenizer = Tokenizer(num_words=MAX_WORDS)
         tokenizer.fit_on_texts(texts) #texts contains the Title
@@ -139,17 +139,11 @@ def train():
 
         # IMPORTANT: Only one of the architectures below should be uncommented
 
-        # ------Architecture: MLP------------------------------
-        model.add(tf.keras.layers.Flatten())
-        model.add(tf.keras.layers.Dense(2, activation='relu')) # Try 2-32 units, here and in other Dense layers
-        # model.add(tf.keras.layers.Dense(2, activation='relu')) # Try adding more Dense layers uncommenting this line
-        #------------------------------------------------------
-
         #-------Architecture: RNN w/Dropout suitable for GPUs--
-        # model.add(tf.keras.layers.Dropout(0.5))
-        # model.add(tf.keras.layers.LSTM(32, return_sequences=True))  # returns a sequence of vectors of dimension 32
-        # model.add(tf.keras.layers.LSTM(32, return_sequences=True))  # returns a sequence of vectors of dimension 32
-        # model.add(tf.keras.layers.LSTM(32))  # return a single vector of dimension 32
+        model.add(tf.keras.layers.Dropout(0.5))
+        model.add(tf.keras.layers.LSTM(32, return_sequences=True))  # returns a sequence of vectors of dimension 32
+        model.add(tf.keras.layers.LSTM(32, return_sequences=True))  # returns a sequence of vectors of dimension 32
+        model.add(tf.keras.layers.LSTM(32))  # return a single vector of dimension 32
         #------------------------------------------------------
 
         model.add(tf.keras.layers.Dense(len(label_index), activation='softmax'))
