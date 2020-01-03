@@ -37,6 +37,8 @@ from tensorflow.python.estimator.export.export_output import PredictOutput
 from tensorflow.python.keras.preprocessing.text import Tokenizer
 from tensorflow.python.keras.preprocessing.sequence import pad_sequences
 from tensorflow.python.keras.utils import to_categorical
+from keras.layers import Dense, Input, LSTM, Embedding, Dropout, Activation
+from keras.models import Model
 import re
 
 # These are the paths to where SageMaker mounts interesting things in your container.
@@ -57,7 +59,7 @@ label_index = {'abusive':0,'asking_exchange':1,'asking_payment':2,'normal':3,'of
 MAX_WORDS = 10000 # only consider the top 10,000 words in the dataset
 WORD_INDEX = {}
 EMBEDDING_DIM = 100
-MAX_LEN = 100
+MAX_LEN = 500
 
 def get_label_id(category):
   return label_index[category]
@@ -134,33 +136,25 @@ def train():
 
         #now lets build our sequential model using keras
 
-        model = tf.keras.models.Sequential()
-        model.add(tf.keras.layers.Embedding(MAX_WORDS, EMBEDDING_DIM, input_length=MAX_LEN))
+        vocab_size = len(tokenizer.word_index) + 1
 
-        # IMPORTANT: Only one of the architectures below should be uncommented
+        inputs = Input(shape=(MAX_LEN,))
+        embedding_layer = Embedding(vocab_size,
+                                    128,
+                                    input_length=MAX_LEN)(inputs)
 
-        #-------Architecture: RNN w/Dropout suitable for GPUs--
-        model.add(tf.keras.layers.Dropout(0.5))
-        model.add(tf.keras.layers.LSTM(32, return_sequences=True))  # returns a sequence of vectors of dimension 32
-        model.add(tf.keras.layers.LSTM(32, return_sequences=True))  # returns a sequence of vectors of dimension 32
-        model.add(tf.keras.layers.LSTM(32))  # return a single vector of dimension 32
-        #------------------------------------------------------
-
-        model.add(tf.keras.layers.Dense(len(label_index), activation='softmax'))
-        model.summary()
-
-        model.layers[0].set_weights([embedding_matrix])
-        model.layers[0].trainable = False
-
-        #model.save_weights('pre_trained_glove_model.h5')
-
-        model.compile(optimizer='rmsprop',
+        x = LSTM(64)(embedding_layer)
+        x = Dense(32, activation='relu')(x)
+        predictions = Dense(len(label_index), activation='softmax')(x)
+        model = Model(inputs=[inputs], outputs=predictions)
+        model.compile(optimizer='adam',
                       loss='categorical_crossentropy',
                       metrics=['acc'])
+        model.summary()
         history = model.fit(x_train, y_train,
-                            epochs=2,
-                            verbose=2,
-                            batch_size=32,
+                            epochs=10,
+                            verbose=1,
+                            batch_size=64,
                             validation_data=(x_test, y_test))
 
 
